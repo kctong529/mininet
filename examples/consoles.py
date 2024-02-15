@@ -28,7 +28,7 @@ Bob Lantz, April 2010
 import re
 
 # pylint: disable=import-error
-from Tkinter import Frame, Button, Label, Text, Scrollbar, Canvas, Wm, READABLE
+from tkinter import Frame, Button, Label, Text, Scrollbar, Canvas, Wm, READABLE
 
 from mininet.log import setLogLevel
 from mininet.topolib import TreeNet
@@ -354,8 +354,8 @@ class ConsoleApp( Frame ):
         for node in nodes:
             console = Console( f, self.net, node, title=title )
             consoles.append( console )
-            row = index / width
-            column = index % width
+            row = int(index / width)
+            column = int(index % width)
             console.grid( row=row, column=column, sticky='nsew' )
             index += 1
             f.rowconfigure( row, weight=1 )
