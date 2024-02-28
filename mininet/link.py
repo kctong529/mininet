@@ -273,11 +273,18 @@ class TCIntf( Intf ):
 
             # ECN or RED
             if enable_ecn:
+                # Experimental modification by Pasi:
+                # If ECN is enabled, apply FQ-CoDel instead of RED
                 cmds += [ '%s qdisc add dev %s' + parent +
-                          'handle 6: red limit 1000000 ' +
-                          'min 30000 max 35000 avpkt 1500 ' +
-                          'burst 20 ' +
+                          'handle 6: fq_codel limit 2000 ' +
+                          'target 20ms interval 100ms ' +
                           'bandwidth %fmbit probability 1 ecn' % bw ]
+                # This was the original code:
+                #cmds += [ '%s qdisc add dev %s' + parent +
+                #          'handle 6: red limit 1000000 ' +
+                #          'min 30000 max 35000 avpkt 1500 ' +
+                #          'burst 20 ' +
+                #          'bandwidth %fmbit probability 1 ecn' % bw ]
                 parent = ' parent 6: '
             elif enable_red:
                 cmds += [ '%s qdisc add dev %s' + parent +
