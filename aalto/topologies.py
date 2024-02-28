@@ -1,6 +1,7 @@
 """ELEC-E7320 Internet Protocols course test topologies
 
 Modified from mininet custom topology example.
+This is an old script, simple_topo.py is recommended instead of this.
 
 Usage:
 sudo mn -x --custom aalto/topologies.py --link=tc --topo <name>
