@@ -57,9 +57,11 @@ install-manpages: $(MANPAGES)
 	install -D -t $(MANDIR) $(MANPAGES)
 
 install: install-mnexec install-manpages
-#	This seems to work on all pip versions
-	$(PYTHON) -m pip uninstall -y mininet || true
-	$(PYTHON) -m pip install .
+#   New versions of python and pip prefer using venv for installations,
+#   and probably we should do so as well (TODO). For now override the
+#   warnings by --break-system-packages option, should be fixed later.
+	pip uninstall -y mininet --break-system-packages || true
+	pip install . --break-system-packages
 
 develop: $(MNEXEC) $(MANPAGES)
 # 	Perhaps we should link these as well

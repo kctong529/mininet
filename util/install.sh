@@ -174,7 +174,7 @@ function mn_deps {
                         python-pep8 ${PYPKG}-pexpect ${PYPKG}-tk
     else  # Debian/Ubuntu
         pf=pyflakes
-        pep8=pep8
+        pep8=python3-pep8
         # Starting around 20.04, installing pyflakes instead of pyflakes3
         # causes Python 2 to be installed, which is exactly NOT what we want.
         if [ "$DIST" = "Ubuntu" -a `expr $RELEASE '>=' 20.04` = "1" ]; then
