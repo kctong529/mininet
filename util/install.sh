@@ -242,7 +242,8 @@ function of {
     fi
     # was: git clone git://openflowswitch.org/openflow.git
     # Use our own fork on github for now:
-    git clone https://github.com/mininet/openflow
+    # ...which was further replaced with PasiSa fork...
+    git clone https://github.com/PasiSa/openflow
     cd $BUILD_DIR/openflow
 
     # Patch controller to handle more than 16 switches
