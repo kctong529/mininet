@@ -18,7 +18,7 @@ CC ?= cc
 CFLAGS += -Wall -Wextra
 
 # Virtual environment configuration
-VENV_DIR = AdvancedNetworking
+VENV_DIR = mininet-venv
 VENV_PYTHON = $(VENV_DIR)/bin/python
 VENV_PIP = $(VENV_DIR)/bin/pip
 VENV_ACTIVATE = $(VENV_DIR)/bin/activate
@@ -98,7 +98,7 @@ install: install-mnexec install-manpages
 		pip uninstall -y mininet || true; \
 		pip install .; \
 	else \
-		echo "No virtual environment active. Creating and using AdvancedNetworking venv..."; \
+		echo "No virtual environment active. Creating and using mininet-venv..."; \
 		$(MAKE) $(VENV_DIR); \
 		echo "Installing mininet in virtual environment..."; \
 		$(VENV_PIP) uninstall -y mininet || true; \
@@ -112,9 +112,9 @@ install: install-mnexec install-manpages
 		echo "  $(VENV_PYTHON) -m mininet.examples.test"; \
 	fi
 
-# Install in the AdvancedNetworking venv (create if needed)
+# Install in the mininet-venv (create if needed)
 install-venv: $(VENV_DIR) install-mnexec install-manpages
-	@echo "Installing mininet in AdvancedNetworking virtual environment..."
+	@echo "Installing mininet in mininet-venv virtual environment..."
 	$(VENV_PIP) uninstall -y mininet || true
 	$(VENV_PIP) install .
 	@echo ""
@@ -164,11 +164,11 @@ doc: man
 status:
 	@echo "Environment Status:"
 	@echo "  Virtual environment active: $(VENV_ACTIVE)"
-	@echo "  Local AdvancedNetworking venv exists: $(shell [ -d $(VENV_DIR) ] && echo 'Yes' || echo 'No')"
+	@echo "  Local mininet-venv exists: $(shell [ -d $(VENV_DIR) ] && echo 'Yes' || echo 'No')"
 	@echo "  Python path: $(shell which $(PYTHON))"
 	@echo "  Pip path: $(shell which pip 2>/dev/null || echo 'Not found')"
 	@if [ -f $(VENV_ACTIVATE) ]; then \
-		echo "  AdvancedNetworking venv activation: source $(VENV_ACTIVATE)"; \
+		echo "  mininet-venv activation: source $(VENV_ACTIVATE)"; \
 	fi
 
 # Help target
@@ -182,12 +182,12 @@ help:
 	@echo "  codecheck        - Run code quality checks"
 	@echo ""
 	@echo "Installation (recommended):"
-	@echo "  install          - Auto-install (creates AdvancedNetworking venv if needed)"
-	@echo "  install-venv     - Install in AdvancedNetworking virtual environment"
-	@echo "  develop          - Install in development mode (AdvancedNetworking venv)"
+	@echo "  install          - Auto-install (creates mininet-venv if needed)"
+	@echo "  install-venv     - Install in mininet-venv virtual environment"
+	@echo "  develop          - Install in development mode (mininet-venv)"
 	@echo ""
 	@echo "Virtual environment:"
-	@echo "  venv             - Create AdvancedNetworking virtual environment"
+	@echo "  venv             - Create mininet-venv virtual environment"
 	@echo "  status           - Show current environment status"
 	@echo ""
 	@echo "Other install options:"
@@ -196,10 +196,10 @@ help:
 	@echo ""
 	@echo "Cleanup:"
 	@echo "  clean            - Clean build artifacts"
-	@echo "  clean-venv       - Remove AdvancedNetworking virtual environment"
+	@echo "  clean-venv       - Remove mininet-venv virtual environment"
 	@echo "  clean-all        - Clean everything"
 	@echo ""
 	@echo "Recommended workflow:"
-	@echo "  make install     # Creates AdvancedNetworking venv and installs"
-	@echo "  source AdvancedNetworking/bin/activate"
+	@echo "  make install     # Creates mininet-venv and installs"
+	@echo "  source mininet-venv/bin/activate"
 	@echo "  mn --test pingall"
