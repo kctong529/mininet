@@ -17,33 +17,24 @@ PDF = doc/latex/refman.pdf
 CC ?= cc
 CFLAGS += -Wall -Wextra
 
-# Check if we're in a virtual environment or if --break-system-packages is needed
-VENV_ACTIVE := $(shell $(PYTHON) -c "import sys; print('1' if hasattr(sys, 'real_prefix') or (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix) else '0')")
-PIP_VERSION := $(shell pip --version 2>/dev/null | cut -d' ' -f2 | cut -d'.' -f1)
-PIP_MAJOR := $(shell echo $(PIP_VERSION) | head -c1)
+# Virtual environment configuration
+VENV_DIR = AdvancedNetworking
+VENV_PYTHON = $(VENV_DIR)/bin/python
+VENV_PIP = $(VENV_DIR)/bin/pip
+VENV_ACTIVATE = $(VENV_DIR)/bin/activate
 
-# Determine pip install flags based on environment
-ifeq ($(VENV_ACTIVE),1)
-    # In virtual environment, no special flags needed
-    PIP_INSTALL_FLAGS := 
-    PIP_UNINSTALL_FLAGS := 
-else
-    # Not in virtual environment, check pip version
-    ifeq ($(shell test $(PIP_MAJOR) -ge 23 && echo 1),1)
-        # pip >= 23.0, use --break-system-packages
-        PIP_INSTALL_FLAGS := --break-system-packages
-        PIP_UNINSTALL_FLAGS := --break-system-packages
-    else
-        # Older pip version, try --user as fallback
-        PIP_INSTALL_FLAGS := --user
-        PIP_UNINSTALL_FLAGS := 
-    endif
-endif
+# Check if we're already in a virtual environment
+VENV_ACTIVE := $(shell $(PYTHON) -c "import sys; print('1' if hasattr(sys, 'real_prefix') or (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix) else '0')")
 
 all: codecheck test
 
 clean:
 	rm -rf build dist *.egg-info *.pyc $(MNEXEC) $(MANPAGES) $(DOCDIRS)
+
+clean-venv:
+	rm -rf $(VENV_DIR)
+
+clean-all: clean clean-venv
 
 codecheck: $(PYSRC)
 	-echo "Running code check"
@@ -78,35 +69,81 @@ install-mnexec: $(MNEXEC)
 install-manpages: $(MANPAGES)
 	install -D -t $(MANDIR) $(MANPAGES)
 
-# Enhanced install target with better environment detection
-install: install-mnexec install-manpages
-	@echo "Detected environment: VENV_ACTIVE=$(VENV_ACTIVE), PIP_VERSION=$(PIP_VERSION)"
-	@echo "Using pip flags: install=$(PIP_INSTALL_FLAGS), uninstall=$(PIP_UNINSTALL_FLAGS)"
-	pip uninstall -y mininet $(PIP_UNINSTALL_FLAGS) || true
-	pip install . $(PIP_INSTALL_FLAGS)
+# Create virtual environment
+$(VENV_DIR):
+	@echo "Creating virtual environment in $(VENV_DIR)..."
+	$(PYTHON) -m venv $(VENV_DIR)
+	@echo "Upgrading pip in virtual environment..."
+	$(VENV_PIP) install --upgrade pip
+	@echo "Virtual environment created successfully!"
+	@echo "To activate manually: source $(VENV_ACTIVATE)"
 
-# Alternative install targets for specific scenarios
-install-venv: install-mnexec install-manpages
-	@echo "Installing in virtual environment (no special flags)"
+venv: $(VENV_DIR)
+
+# Install in existing virtual environment (if already active)
+install-current-venv: install-mnexec install-manpages
+	@if [ "$(VENV_ACTIVE)" = "0" ]; then \
+		echo "ERROR: No virtual environment is currently active."; \
+		echo "Please activate a virtual environment first, or use 'make install' to create one."; \
+		exit 1; \
+	fi
+	@echo "Installing in currently active virtual environment..."
 	pip uninstall -y mininet || true
 	pip install .
 
-install-system: install-mnexec install-manpages
-	@echo "Installing system-wide with --break-system-packages"
-	pip uninstall -y mininet --break-system-packages || true
-	pip install . --break-system-packages
+# Main install target - creates venv if needed, then installs
+install: install-mnexec install-manpages
+	@if [ "$(VENV_ACTIVE)" = "1" ]; then \
+		echo "Installing in currently active virtual environment..."; \
+		pip uninstall -y mininet || true; \
+		pip install .; \
+	else \
+		echo "No virtual environment active. Creating and using AdvancedNetworking venv..."; \
+		$(MAKE) $(VENV_DIR); \
+		echo "Installing mininet in virtual environment..."; \
+		$(VENV_PIP) uninstall -y mininet || true; \
+		$(VENV_PIP) install .; \
+		echo ""; \
+		echo "Installation complete!"; \
+		echo "To use mininet, activate the virtual environment:"; \
+		echo "  source $(VENV_ACTIVATE)"; \
+		echo ""; \
+		echo "Or run directly:"; \
+		echo "  $(VENV_PYTHON) -m mininet.examples.test"; \
+	fi
 
-install-user: install-mnexec install-manpages
-	@echo "Installing for current user only"
-	pip uninstall -y mininet || true
-	pip install . --user
+# Install in the AdvancedNetworking venv (create if needed)
+install-venv: $(VENV_DIR) install-mnexec install-manpages
+	@echo "Installing mininet in AdvancedNetworking virtual environment..."
+	$(VENV_PIP) uninstall -y mininet || true
+	$(VENV_PIP) install .
+	@echo ""
+	@echo "Installation complete!"
+	@echo "To activate: source $(VENV_ACTIVATE)"
 
-develop: $(MNEXEC) $(MANPAGES)
-# 	Perhaps we should link these as well
+# Development install in local venv
+develop: $(VENV_DIR) $(MNEXEC) $(MANPAGES)
 	install $(MNEXEC) $(BINDIR)
 	install $(MANPAGES) $(MANDIR)
-	$(PYTHON) -m pip uninstall -y mininet || true
-	$(PYTHON) -m pip install -e . --no-binary :all: $(PIP_INSTALL_FLAGS)
+	@echo "Installing mininet in development mode..."
+	$(VENV_PIP) uninstall -y mininet || true
+	$(VENV_PIP) install -e . --no-binary :all:
+	@echo ""
+	@echo "Development installation complete!"
+	@echo "To activate: source $(VENV_ACTIVATE)"
+
+# Legacy system install (not recommended)
+install-system: install-mnexec install-manpages
+	@echo "WARNING: Installing system-wide. This may conflict with system packages."
+	@echo "Consider using 'make install' (creates venv) or 'make install-current-venv' instead."
+	@read -p "Continue with system install? [y/N] " -n 1 -r; \
+	echo; \
+	if [[ ! $$REPLY =~ ^[Yy]$$ ]]; then \
+		echo "Installation cancelled."; \
+		exit 1; \
+	fi
+	pip uninstall -y mininet || true
+	pip install . --break-system-packages
 
 man: $(MANPAGES)
 
@@ -123,16 +160,46 @@ doc: man
 	doxygen doc/doxygen.cfg
 	make -C doc/latex
 
-# Help target to explain the different install options
+# Show current environment status
+status:
+	@echo "Environment Status:"
+	@echo "  Virtual environment active: $(VENV_ACTIVE)"
+	@echo "  Local AdvancedNetworking venv exists: $(shell [ -d $(VENV_DIR) ] && echo 'Yes' || echo 'No')"
+	@echo "  Python path: $(shell which $(PYTHON))"
+	@echo "  Pip path: $(shell which pip 2>/dev/null || echo 'Not found')"
+	@if [ -f $(VENV_ACTIVATE) ]; then \
+		echo "  AdvancedNetworking venv activation: source $(VENV_ACTIVATE)"; \
+	fi
+
+# Help target
 help:
 	@echo "Mininet Makefile targets:"
-	@echo "  all          - Run codecheck and test"
-	@echo "  install      - Auto-detect environment and install appropriately"
-	@echo "  install-venv - Install in virtual environment (recommended)"
-	@echo "  install-system - Force system install with --break-system-packages"
-	@echo "  install-user - Install for current user only (--user)"
-	@echo "  develop      - Install in development mode"
-	@echo "  test         - Run basic tests"
-	@echo "  slowtest     - Run comprehensive tests"
-	@echo "  clean        - Clean build artifacts"
-	@echo "  help         - Show this help message"
+	@echo ""
+	@echo "Build and test:"
+	@echo "  all              - Run codecheck and test"
+	@echo "  test             - Run basic tests"
+	@echo "  slowtest         - Run comprehensive tests"
+	@echo "  codecheck        - Run code quality checks"
+	@echo ""
+	@echo "Installation (recommended):"
+	@echo "  install          - Auto-install (creates AdvancedNetworking venv if needed)"
+	@echo "  install-venv     - Install in AdvancedNetworking virtual environment"
+	@echo "  develop          - Install in development mode (AdvancedNetworking venv)"
+	@echo ""
+	@echo "Virtual environment:"
+	@echo "  venv             - Create AdvancedNetworking virtual environment"
+	@echo "  status           - Show current environment status"
+	@echo ""
+	@echo "Other install options:"
+	@echo "  install-current-venv - Install in currently active venv"
+	@echo "  install-system   - System install (not recommended)"
+	@echo ""
+	@echo "Cleanup:"
+	@echo "  clean            - Clean build artifacts"
+	@echo "  clean-venv       - Remove AdvancedNetworking virtual environment"
+	@echo "  clean-all        - Clean everything"
+	@echo ""
+	@echo "Recommended workflow:"
+	@echo "  make install     # Creates AdvancedNetworking venv and installs"
+	@echo "  source AdvancedNetworking/bin/activate"
+	@echo "  mn --test pingall"
