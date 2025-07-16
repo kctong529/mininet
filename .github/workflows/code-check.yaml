@@ -26,7 +26,7 @@ jobs:
           sudo PYTHON=python3 util/install.sh -n
           
           # Install additional tools for code checking
-          python3 -m pip install pylint==2.15.7 flake8 pyflakes
+          python3 -m pip install pylint==2.15.7 flake8 pyflakes pep8
           
       - name: Run code check
         run: |

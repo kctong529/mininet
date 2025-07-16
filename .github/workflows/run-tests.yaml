@@ -41,6 +41,10 @@ jobs:
           util/install.sh -fw
       - name: Run core tests
         run: |
+          # Activate the virtual environment if it exists
+          if [ -d "mininet-venv" ]; then
+            source mininet-venv/bin/activate
+          fi
           export sudo="sudo env PATH=$PATH"
           export PYTHON=${{ matrix.py }}
           $sudo $PYTHON mininet/test/runner.py -v
