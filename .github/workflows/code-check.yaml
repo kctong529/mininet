@@ -44,7 +44,8 @@ jobs:
           if [ -d "mininet-venv" ]; then
             source mininet-venv/bin/activate
           fi
-          
+
           # Verify mn command is available
           which mn || (echo "mn command not found!" && exit 1)
-          python3 -c "from mininet.net import Mininet; Mininet().stop()"
+          sudo mn
+      
