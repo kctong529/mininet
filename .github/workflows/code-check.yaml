@@ -1,0 +1,72 @@
+name: Code Check
+on: [push, pull_request]
+
+jobs:
+  shellcheck:
+    name: ShellCheck
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Run ShellCheck
+      uses: ludeeus/action-shellcheck@1.1.0
+      with:
+        shellcheck_args: '-x -e SC1090,SC1091,SC2148'
+        path: 'util/install.sh'
+
+  syntax-test:
+    name: Syntax Test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        shell: [bash, dash, sh]
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Test with different shells
+      run: |
+        sudo apt-get install -y ${{ matrix.shell }}
+        ${{ matrix.shell }} -n util/install.sh
+        echo "Syntax check passed for ${{ matrix.shell }}"
+
+  dry-run-test:
+    name: Dry Run Test
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Test basic options
+      run: |
+        # Test help option
+        ./util/install.sh -h | grep -q "Usage:"
+        
+        # Test dry runs of main options
+        for option in n f v p; do
+          echo "Testing -$option"
+          ./util/install.sh -$option --dry-run
+        done
+
+        # Test invalid option
+        if ./util/install.sh -z 2>/dev/null; then
+          echo "Error: Invalid option -z should fail"
+          exit 1
+        fi
+
+  integration-test:
+    name: Integration Test
+    runs-on: ubuntu-latest
+    container: ubuntu:22.04
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Basic installation test
+      run: |
+        apt-get update
+        apt-get install -y sudo
+        # Test minimal installation
+        sudo ./util/install.sh -n
+        sudo mn --test pingall
