@@ -1,4 +1,3 @@
-
 name: mininet-tests
 
 on: [push, pull_request]
@@ -10,46 +9,51 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-22.04, ubuntu-20.04]
-        py: [python3, python2]
+
     steps:
       - name: Check out Mininet source
         uses: actions/checkout@v3
-      - name: Install Python ${{ matrix.py }}
-        run: sudo apt install ${{ matrix.py }}
+
+      - name: Install Python 3 and dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3 python3-pip
+
       - name: Install Mininet and base dependencies
         run: |
-          sudo apt-get update -qq
-          # This seems too slow unfortunately:
-          # sudo apt-get upgrade -y -qq
-          PYTHON=${{ matrix.py }} util/install.sh -nv
+          PYTHON=python3
+          sudo env PYTHON=$PYTHON ./util/install.sh -nv
+
+      - name: Ensure Mininet is in PATH
+        run: echo "/usr/local/bin" >> $GITHUB_PATH
+
       - name: Disable slow udevd
-        run: sudo systemctl stop systemd-udevd
-             systemd-udevd-kernel.socket
-             systemd-udevd-control.socket
-             || echo "couldn't disable udevd"
+        run: |
+          sudo systemctl stop systemd-udevd || true
+          sudo systemctl stop systemd-udevd-kernel.socket || true
+          sudo systemctl stop systemd-udevd-control.socket || true
+
       - name: Sanity test
         run: |
           export sudo="sudo env PATH=$PATH"
-          export PYTHON=${{ matrix.py }}
-          # Newer OvS tries OpenFlow15 which crashes ovsc on ubuntu-20.04
+          export PYTHON=python3
+          $sudo which mn
           $sudo mn --switch ovs,protocols=OpenFlow13 --test pingall
+
       - name: Install test dependencies
         run: |
-          sudo apt-get install -qq vlan
-          export PYTHON=${{ matrix.py }}
-          sudo $PYTHON -m pip install pexpect
-          util/install.sh -fw
+          sudo apt-get install -y vlan
+          sudo python3 -m pip install pexpect
+          ./util/install.sh -fw
+
       - name: Run core tests
         run: |
-          # Activate the virtual environment if it exists
-          if [ -d "mininet-venv" ]; then
-            source mininet-venv/bin/activate
-          fi
           export sudo="sudo env PATH=$PATH"
-          export PYTHON=${{ matrix.py }}
+          export PYTHON=python3
           $sudo $PYTHON mininet/test/runner.py -v
+
       - name: Run examples tests
         run: |
           export sudo="sudo env PATH=$PATH"
-          export PYTHON=${{ matrix.py }}
+          export PYTHON=python3
           $sudo $PYTHON examples/test/runner.py -v
