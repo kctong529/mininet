@@ -48,6 +48,13 @@ jobs:
 
           sudo env PATH=$PATH mn --test pingall
 
+      - name: Install OpenFlow from local repo
+        run: |
+          git clone https://github.com/kctong529/openflow.git
+          cd openflow
+          ./configure
+          sudo make install
+
       - name: Install test dependencies
         run: |
           sudo apt-get install -y vlan
