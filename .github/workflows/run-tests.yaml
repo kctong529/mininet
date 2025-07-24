@@ -50,7 +50,7 @@ jobs:
 
       - name: Install OpenFlow from local repo
         run: |
-          git clone https://github.com/kctong529/openflow.git
+          git clone git@github.com:kctong529/openflow.git
           cd openflow
           ./configure
           sudo make install
