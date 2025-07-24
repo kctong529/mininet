@@ -18,7 +18,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y python3-venv python3-dev help2man ovs-vsctl
+          sudo apt-get install -y python3-venv python3-dev help2man
           
       - name: Install Mininet and check dependencies
         run: |
