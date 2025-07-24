@@ -42,9 +42,11 @@ jobs:
 
       - name: Sanity test
         run: |
-          export PYTHON=python3
-          sudo env PATH=$PATH which mn
-          sudo env PATH=$PATH mn --switch ovs,protocols=OpenFlow13 --test pingall
+          if [ -d "mininet-venv" ]; then
+            source mininet-venv/bin/activate
+          fi
+
+          sudo env PATH=$PATH mn --test pingall
 
       - name: Install test dependencies
         run: |
