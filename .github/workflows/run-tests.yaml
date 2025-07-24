@@ -22,10 +22,17 @@ jobs:
       - name: Install Mininet and base dependencies
         run: |
           PYTHON=python3
-          sudo env PYTHON=$PYTHON ./util/install.sh -nv
+          sudo env PYTHON=$PYTHON make install
 
-      - name: Ensure Mininet is in PATH
-        run: echo "/usr/local/bin" >> $GITHUB_PATH
+      - name: Verify Mininet installation
+        run: |
+          # Activate the virtual environment if it exists
+          if [ -d "mininet-venv" ]; then
+            source mininet-venv/bin/activate
+          fi
+
+          # Verify mn command is available
+          which mn || (echo "mn command not found!" && exit 1)
 
       - name: Disable slow udevd
         run: |

@@ -22,8 +22,7 @@ jobs:
           
       - name: Install Mininet and check dependencies
         run: |
-          # Use -n flag for minimal installation
-          sudo PYTHON=python3 util/install.sh -n
+          sudo PYTHON=python3 make install
           
           # Install additional tools for code checking
           python3 -m pip install pylint==2.15.7 flake8 pyflakes pep8
