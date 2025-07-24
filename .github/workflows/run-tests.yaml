@@ -35,10 +35,9 @@ jobs:
 
       - name: Sanity test
         run: |
-          export sudo="sudo env PATH=$PATH"
           export PYTHON=python3
-          $sudo which mn
-          $sudo mn --switch ovs,protocols=OpenFlow13 --test pingall
+          sudo env PATH=$PATH which mn
+          sudo env PATH=$PATH mn --switch ovs,protocols=OpenFlow13 --test pingall
 
       - name: Install test dependencies
         run: |
@@ -48,12 +47,10 @@ jobs:
 
       - name: Run core tests
         run: |
-          export sudo="sudo env PATH=$PATH"
           export PYTHON=python3
-          $sudo $PYTHON mininet/test/runner.py -v
+          $sudo env PATH=$PATH $PYTHON mininet/test/runner.py -v
 
       - name: Run examples tests
         run: |
-          export sudo="sudo env PATH=$PATH"
           export PYTHON=python3
-          $sudo $PYTHON examples/test/runner.py -v
+          $sudo env PATH=$PATH $PYTHON examples/test/runner.py -v

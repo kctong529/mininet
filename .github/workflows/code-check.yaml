@@ -47,5 +47,5 @@ jobs:
 
           # Verify mn command is available
           which mn || (echo "mn command not found!" && exit 1)
-          sudo mn
+          sudo env PATH=$PATH mn
       
