@@ -58,6 +58,9 @@ jobs:
         run: |
           echo "Main Repo:"
           ls -l
+          cd public-repo
+          echo "In public-repo:"
+          ls -l
 
       - name: Install OpenFlow
         run: |
