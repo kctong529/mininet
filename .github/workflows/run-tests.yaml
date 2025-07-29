@@ -64,7 +64,7 @@ jobs:
 
       - name: Install OpenFlow
         run: |
-          cd public-repo/openflow
+          cd public-repo
           ./configure
           sudo make install
 
