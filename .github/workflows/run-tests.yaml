@@ -62,11 +62,52 @@ jobs:
           echo "In public-repo:"
           ls -l
 
-      - name: Install OpenFlow
+      - name: Generate build configuration
         run: |
           cd public-repo
-          ./configure
-          sudo make install
+          echo "::notice::Generating build configuration..."
+          if ./boot.sh; then
+            echo "::notice::Build configuration generated."
+          else
+            echo "::error::Failed to generate build configuration."
+            exit 1
+          fi
+
+      - name: Configure build system
+        run: |
+          cd public-repo
+          echo "::notice::Configuring build system..."
+          if ./configure; then
+            echo "::notice::Build system configured."
+          else
+            echo "::error::Failed to configure build system."
+            exit 1
+          fi
+
+      - name: Compile OpenFlow
+        run: |
+          cd public-repo
+          echo "::notice::Compiling OpenFlow (this may take a few minutes)..."
+          cpu_cores=$(nproc)
+          echo "::notice::Using $cpu_cores CPU cores for parallel compilation."
+          
+          if make -j"$cpu_cores"; then
+            echo "::notice::OpenFlow compilation completed."
+          else
+            echo "::error::OpenFlow compilation failed."
+            exit 1
+          fi
+
+      - name: Install OpenFlow binaries
+        run: |
+          cd public-repo
+          echo "::notice::Installing OpenFlow binaries..."
+          if sudo make install; then
+            echo "::notice::OpenFlow binaries installed."
+          else
+            echo "::error::Failed to install OpenFlow binaries."
+            exit 1
+          fi
 
       - name: Install test dependencies
         run: |
