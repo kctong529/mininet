@@ -119,6 +119,6 @@ jobs:
         run: |
           export PYTHON=python3
           export PYTHONPATH=$PWD:$PYTHONPATH
-          sudo mn -c || true
+          sudo nv PATH=$PATH mn -c || true
           # Run only basic tests first
           sudo env PATH=$PATH PYTHONPATH=$PYTHONPATH $PYTHON -m pytest mininet/test/ -v -k "test_basic" || true
