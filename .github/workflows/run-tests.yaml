@@ -54,16 +54,16 @@ jobs:
           repository: kctong529/openflow
           path: public-repo
 
+      - name: List directories to verify checkouts
+        run: |
+          echo "Main Repo:"
+          ls -l
+
       - name: Install OpenFlow
         run: |
           cd openflow
           ./configure
           sudo make install
-
-      - name: List directories to verify checkouts
-        run: |
-          echo "Main Repo:"
-          ls -l
 
       - name: Install test dependencies
         run: |
