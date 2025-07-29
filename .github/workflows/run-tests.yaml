@@ -112,14 +112,16 @@ jobs:
       - name: Install test dependencies
         run: |
           sudo apt-get install -y vlan
-          sudo python3 -m pip install pexpect
+          sudo env PATH=$PATH $PYTHON -m pip install pexpect
 
       - name: Run core tests
         run: |
           export PYTHON=python3
-          $sudo env PATH=$PATH $PYTHON mininet/test/runner.py -v
+          export PYTHONPATH=$PWD:$PYTHONPATH
+          sudo env PATH=$PATH PYTHONPATH=$PYTHONPATH $PYTHON mininet/test/runner.py -v
 
       - name: Run examples tests
         run: |
           export PYTHON=python3
-          $sudo env PATH=$PATH $PYTHON examples/test/runner.py -v
+          export PYTHONPATH=$PWD:$PYTHONPATH
+          sudo env PATH=$PATH PYTHONPATH=$PYTHONPATH $PYTHON examples/test/runner.py -v
