@@ -12,7 +12,7 @@ jobs:
 
     steps:
       - name: Check out Mininet source
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install Python 3 and dependencies
         run: |
@@ -48,9 +48,14 @@ jobs:
 
           sudo env PATH=$PATH mn --test pingall
 
-      - name: Install OpenFlow from local repo
+      - name: Clone OpenFlow from public repo
+        uses: actions/checkout@v4
+        with:
+          repository: kctong529/openflow
+          path: public-repo
+
+      - name: Install OpenFlow
         run: |
-          git clone git@github.com:kctong529/openflow.git
           cd openflow
           ./configure
           sudo make install
