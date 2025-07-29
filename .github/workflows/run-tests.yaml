@@ -113,7 +113,7 @@ jobs:
         run: |
           export PYTHON=python3
           sudo apt-get install -y vlan
-          sudo env PATH=$PATH $PYTHON -m pip install pexpect
+          sudo env PATH=$PATH $PYTHON -m pip install pexpect pytest
 
       - name: Run core tests (basic only)
         run: |
