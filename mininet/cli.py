@@ -499,6 +499,34 @@ class CLI( Cmd ):
         except Exception as e:
             error(f'Failed to add link: {str(e)}\n')
 
+
+    def default( self, line ):
+        """Called on an input line when the command prefix is not recognized.
+           Overridden to run shell commands when a node is the first
+           CLI argument.  Past the first CLI argument, node names are
+           automatically replaced with corresponding IP addrs."""
+
+        first, args, line = self.parseline( line )
+
+        if first in self.mn:
+            if not args:
+                error( '*** Please enter a command for node: %s <cmd>\n'
+                       % first )
+                return
+            node = self.mn[ first ]
+            rest = args.split( ' ' )
+            # Substitute IP addresses for node names in command
+            # If updateIP() returns None, then use node name
+            rest = [ self.mn[ arg ].defaultIntf().updateIP() or arg
+                     if arg in self.mn else arg
+                     for arg in rest ]
+            rest = ' '.join( rest )
+            # Run cmd on node:
+            node.sendCmd( rest )
+            self.waitForNode( node )
+        else:
+            error( '*** Unknown command: %s\n' % line )
+
     def waitForNode( self, node ):
         "Wait for a node to finish, and print its output."
         # Pollers
