@@ -35,13 +35,11 @@ import sys
 import time
 import os
 import atexit
-import re
 
 from mininet.log import info, output, error
 from mininet.term import makeTerms, runX11
 from mininet.util import ( quietRun, dumpNodeConnections,
                            dumpPorts )
-from mininet.node import Host
 
 class CLI( Cmd ):
     "Simple command-line interface to talk to nodes."
