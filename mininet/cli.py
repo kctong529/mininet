@@ -463,7 +463,30 @@ class CLI( Cmd ):
         for arg in args[2:]:
             if '=' in arg:
                 key, value = arg.split('=', 1)
-                params[key] = value
+
+                # Convert numeric parameters to proper types
+                if key == 'bw':
+                    try:
+                        params[key] = float(value)  # Bandwidth as number
+                    except ValueError:
+                        error(f'Invalid bandwidth value: {value}\n')
+                        return
+                elif key == 'delay':
+                    params[key] = value  # Delay stays as string (e.g., '10ms')
+                elif key == 'loss':
+                    try:
+                        params[key] = float(value)  # Loss as number
+                    except ValueError:
+                        error(f'Invalid loss value: {value}\n')
+                        return
+                elif key == 'max_queue_size':
+                    try:
+                        params[key] = int(value)  # Queue size as integer
+                    except ValueError:
+                        error(f'Invalid queue size: {value}\n')
+                        return
+                else:
+                    params[key] = value  # Other parameters as strings
         
         try:
             # Add the link with parameters using node objects
