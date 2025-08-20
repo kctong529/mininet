@@ -35,11 +35,13 @@ import sys
 import time
 import os
 import atexit
+import re
 
 from mininet.log import info, output, error
 from mininet.term import makeTerms, runX11
 from mininet.util import ( quietRun, dumpNodeConnections,
                            dumpPorts )
+from mininet.node import Host
 
 class CLI( Cmd ):
     "Simple command-line interface to talk to nodes."
@@ -448,6 +450,100 @@ class CLI( Cmd ):
         # Add the link with parameters
         self.mn.addLink(node1_name, node2_name, **params)
 
+    def do_addhost(self, line):
+        """Add a new host to the network.
+        Usage: addhost hostname [ip=X.X.X.X] [mac=XX:XX:XX:XX:XX:XX] [cls=HostClass]
+        
+        Examples:
+            addhost h3                           # Add host h3 with auto IP/MAC
+            addhost h4 ip=10.0.0.4              # Add host with specific IP
+            addhost h5 mac=00:00:00:00:00:05     # Add host with specific MAC
+            addhost h6 ip=192.168.1.10 mac=00:11:22:33:44:55
+        
+        Parameters:
+            ip: IP address (e.g., ip=10.0.0.5)
+            mac: MAC address (e.g., mac=00:00:00:00:00:05)  
+            cls: Host class (default: Host)
+        
+        Note: The new host will be isolated until you add links to it.
+        """
+        
+        args = line.split()
+        if len(args) < 1:
+            error('Usage: addhost hostname [ip=X.X.X.X] [mac=XX:XX:XX:XX:XX:XX]\n')
+            return
+        
+        hostname = args[0]
+        
+        # Check if host already exists
+        if hostname in self.mn.nameToNode:
+            error(f'Host {hostname} already exists\n')
+            return
+        
+        # Parse parameters
+        params = {}
+        for arg in args[1:]:
+            if '=' in arg:
+                key, value = arg.split('=', 1)
+                if key == 'ip':
+                    # Validate IP format
+                    ip_pattern = r'^(\d{1,3}\.){3}\d{1,3}$'
+                    if not re.match(ip_pattern, value):
+                        error(f'Invalid IP address format: {value}\n')
+                        return
+                    params['ip'] = value
+                elif key == 'mac':
+                    # Validate MAC format  
+                    mac_pattern = r'^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$'
+                    if not re.match(mac_pattern, value):
+                        error(f'Invalid MAC address format: {value}\n')
+                        return
+                    params['mac'] = value
+                elif key == 'cls':
+                    # For now, just use Host class - could be extended
+                    params['cls'] = Host
+                else:
+                    error(f'Unknown parameter: {key}\n')
+                    return
+        
+        # Auto-generate IP if not provided
+        if 'ip' not in params:
+            # Find next available IP in 10.0.0.x range
+            existing_ips = set()
+            for node in self.mn.hosts:
+                if hasattr(node, 'IP') and node.IP():
+                    ip_parts = node.IP().split('.')
+                    if len(ip_parts) == 4 and ip_parts[:3] == ['10', '0', '0']:
+                        try:
+                            existing_ips.add(int(ip_parts[3]))
+                        except ValueError:
+                            pass
+            
+            # Find next available IP
+            next_ip = 1
+            while next_ip in existing_ips:
+                next_ip += 1
+            params['ip'] = f'10.0.0.{next_ip}'
+        
+        # Auto-generate MAC if not provided
+        if 'mac' not in params:
+            # Generate MAC based on hostname or use a simple scheme
+            host_num = len(self.mn.hosts) + 1
+            params['mac'] = f'00:00:00:00:00:{host_num:02x}'
+        
+        try:
+            # Add the host to the network
+            host = self.mn.addHost(hostname, **params)
+            
+            # Start the host
+            host.start()
+            
+            output(f'Added host {hostname} with IP {params["ip"]} and MAC {params["mac"]}\n')
+            output(f'Host {hostname} is isolated - use "addlink {hostname} <switch>" to connect it\n')
+            
+        except Exception as e:
+            error(f'Failed to add host {hostname}: {str(e)}\n')
+
     def default( self, line ):
         """Called on an input line when the command prefix is not recognized.
            Overridden to run shell commands when a node is the first
@@ -525,6 +621,14 @@ class CLI( Cmd ):
         if '#' in line:
             line = line.split( '#' )[ 0 ]
         return line
+
+    def complete_addhost(self, text, line, begidx, endidx):
+        """Auto-completion for addhost command."""
+        # Complete parameter names
+        params = ['ip=', 'mac=', 'cls=']
+        if '=' in text:
+            return []
+        return [p for p in params if p.startswith(text)]
 
 
 # Helper functions
