@@ -439,6 +439,24 @@ class CLI( Cmd ):
             return
         
         node1_name, node2_name = args[0], args[1]
+        
+        # Get actual node objects
+        if node1_name not in self.mn.nameToNode:
+            error(f'Node {node1_name} not found\n')
+            return
+        if node2_name not in self.mn.nameToNode:
+            error(f'Node {node2_name} not found\n')
+            return
+            
+        node1 = self.mn.nameToNode[node1_name]
+        node2 = self.mn.nameToNode[node2_name]
+        
+        # Check if link already exists
+        existing_links = self.mn.linksBetween(node1, node2)
+        if existing_links:
+            error(f'Link already exists between {node1_name} and {node2_name}\n')
+            return
+        
         params = {}
         
         # Parse parameters
@@ -447,35 +465,39 @@ class CLI( Cmd ):
                 key, value = arg.split('=', 1)
                 params[key] = value
         
-        # Add the link with parameters
-        self.mn.addLink(node1_name, node2_name, **params)
-
-    def default( self, line ):
-        """Called on an input line when the command prefix is not recognized.
-           Overridden to run shell commands when a node is the first
-           CLI argument.  Past the first CLI argument, node names are
-           automatically replaced with corresponding IP addrs."""
-
-        first, args, line = self.parseline( line )
-
-        if first in self.mn:
-            if not args:
-                error( '*** Please enter a command for node: %s <cmd>\n'
-                       % first )
-                return
-            node = self.mn[ first ]
-            rest = args.split( ' ' )
-            # Substitute IP addresses for node names in command
-            # If updateIP() returns None, then use node name
-            rest = [ self.mn[ arg ].defaultIntf().updateIP() or arg
-                     if arg in self.mn else arg
-                     for arg in rest ]
-            rest = ' '.join( rest )
-            # Run cmd on node:
-            node.sendCmd( rest )
-            self.waitForNode( node )
-        else:
-            error( '*** Unknown command: %s\n' % line )
+        try:
+            # Add the link with parameters using node objects
+            link = self.mn.addLink(node1, node2, **params)
+            output(f'Added link between {node1_name} and {node2_name}\n')
+            
+            # Configure interfaces if this is a host-to-host link
+            if hasattr(node1, 'setIP') and hasattr(node2, 'setIP'):
+                # For direct host-to-host links, ensure they can communicate
+                intf1 = link.intf1
+                intf2 = link.intf2
+                
+                # Set up point-to-point addressing if both are hosts
+                if node1_name.startswith('h') and node2_name.startswith('h'):
+                    # Extract host numbers for IP assignment
+                    try:
+                        h1_num = int(node1_name[1:])
+                        h2_num = int(node2_name[1:])
+                        
+                        # Use a point-to-point subnet
+                        subnet_base = f'192.168.{min(h1_num, h2_num)}{max(h1_num, h2_num)}'
+                        ip1 = f'{subnet_base}.1/30'
+                        ip2 = f'{subnet_base}.2/30'
+                        
+                        node1.setIP(ip1, intf=intf1)
+                        node2.setIP(ip2, intf=intf2)
+                        
+                        output(f'Configured {node1_name} interface with {ip1}\n')
+                        output(f'Configured {node2_name} interface with {ip2}\n')
+                    except:
+                        pass  # Fall back to default behavior
+                
+        except Exception as e:
+            error(f'Failed to add link: {str(e)}\n')
 
     def waitForNode( self, node ):
         "Wait for a node to finish, and print its output."
