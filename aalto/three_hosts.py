@@ -2,18 +2,38 @@
 
 from mininet.topo import Topo
 
+
 class ThreeHostsTopo(Topo):
-    """Topology with just h1, h2, h3 - no switches, no initial links"""
+    """Topology with h1, h2, h3 and minimal connectivity for proper initialization"""
     
     def build(self):
-        # Add exactly 3 hosts with pre-configured IPs
-        h1 = self.addHost('h1', ip='10.0.0.1/24', mac='00:00:00:00:00:01')
-        h2 = self.addHost('h2', ip='10.0.0.2/24', mac='00:00:00:00:00:02')
-        h3 = self.addHost('h3', ip='10.0.0.3/24', mac='00:00:00:00:00:03')
+        # Add exactly 3 hosts
+        h1 = self.addHost('h1')
+        h2 = self.addHost('h2') 
+        h3 = self.addHost('h3')
         
-        # No links initially - you'll add them via addlink command
+        # Add a switch for minimal initialization (you can ignore it)
+        s1 = self.addSwitch('s1')
+        
+        # Add minimal links just for initialization - you can add more via CLI
+        # These give each host a default interface so commands work
+        self.addLink(h1, s1)
+        self.addLink(h2, s1) 
+        self.addLink(h3, s1)
 
-# Register topology
+# Alternative: Completely minimal topology        
+class MinimalTestTopo(Topo):
+    """Just h1 and h2 with basic connectivity"""
+    
+    def build(self):
+        h1 = self.addHost('h1', ip='10.0.0.1/24')
+        h2 = self.addHost('h2', ip='10.0.0.2/24')
+        
+        # One basic link so hosts can execute commands
+        self.addLink(h1, h2)
+
+# Register topologies
 topos = {
-    'threehosts': ThreeHostsTopo
+    'threehosts': ThreeHostsTopo,
+    'minimal': MinimalTestTopo
 }
