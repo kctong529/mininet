@@ -541,6 +541,14 @@ class CLI( Cmd ):
         except Exception as e:
             error(f'Failed to add host {hostname}: {str(e)}\n')
 
+        # After creating the host, explicitly configure its IP
+        host = self.mn.addHost(hostname, **params)
+
+        # Manually configure the IP if the host doesn't have one
+        if 'ip' in params:
+            # Configure IP on the default interface
+            host.setIP(params['ip'])
+
         # After creating the host, update hostname resolution
         try:
             # Add to /etc/hosts or update Mininet's internal resolution
