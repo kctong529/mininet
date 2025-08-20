@@ -456,7 +456,7 @@ class CLI( Cmd ):
         
         Examples:
             addhost h3                           # Add host h3 with auto IP/MAC
-            addhost h4 ip=10.0.0.4              # Add host with specific IP
+            addhost h4 ip=10.0.0.4               # Add host with specific IP
             addhost h5 mac=00:00:00:00:00:05     # Add host with specific MAC
             addhost h6 ip=192.168.1.10 mac=00:11:22:33:44:55
         
@@ -534,9 +534,6 @@ class CLI( Cmd ):
         try:
             # Add the host to the network
             host = self.mn.addHost(hostname, **params)
-            
-            # Start the host
-            host.start()
             
             output(f'Added host {hostname} with IP {params["ip"]} and MAC {params["mac"]}\n')
             output(f'Host {hostname} is isolated - use "addlink {hostname} <switch>" to connect it\n')
