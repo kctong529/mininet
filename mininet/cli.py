@@ -535,19 +535,19 @@ class CLI( Cmd ):
             # Add the host to the network
             host = self.mn.addHost(hostname, **params)
             
+            # Properly configure the IP address
+            if 'ip' in params:
+                host.setIP(params['ip'])
+            
+            # Update Mininet's internal mappings
+            self.mn.hosts.append(host)
+            self.mn.nameToNode[hostname] = host
+            
             output(f'Added host {hostname} with IP {params["ip"]} and MAC {params["mac"]}\n')
             output(f'Host {hostname} is isolated - use "addlink {hostname} <switch>" to connect it\n')
             
         except Exception as e:
             error(f'Failed to add host {hostname}: {str(e)}\n')
-
-        # After creating the host, explicitly configure its IP
-        host = self.mn.addHost(hostname, **params)
-
-        # Manually configure the IP if the host doesn't have one
-        if 'ip' in params:
-            # Configure IP on the default interface
-            host.setIP(params['ip'])
 
         # After creating the host, update hostname resolution
         try:
