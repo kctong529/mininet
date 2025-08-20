@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 
 from mininet.topo import Topo
 
@@ -32,8 +32,16 @@ class MinimalTestTopo(Topo):
         # One basic link so hosts can execute commands
         self.addLink(h1, h2)
 
+class JustHostTopo(Topo):
+    """Just h1 and h2 with no connectivity"""
+    
+    def build(self):
+        h1 = self.addHost('h1', ip='10.0.0.1/24')
+        h2 = self.addHost('h2', ip='10.0.0.2/24')
+
 # Register topologies
 topos = {
     'threehosts': ThreeHostsTopo,
-    'minimal': MinimalTestTopo
+    'minimal': MinimalTestTopo,
+    'justhost': JustHostTopo
 }
