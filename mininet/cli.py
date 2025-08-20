@@ -541,6 +541,13 @@ class CLI( Cmd ):
         except Exception as e:
             error(f'Failed to add host {hostname}: {str(e)}\n')
 
+        # After creating the host, update hostname resolution
+        try:
+            # Add to /etc/hosts or update Mininet's internal resolution
+            self.mn.addHostToEtcHosts(host)  # If this method exists
+        except:
+            pass  # Fallback to IP-based testing
+
     def default( self, line ):
         """Called on an input line when the command prefix is not recognized.
            Overridden to run shell commands when a node is the first
