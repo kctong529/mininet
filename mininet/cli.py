@@ -413,6 +413,41 @@ class CLI( Cmd ):
         "Wait until all switches have connected to a controller"
         self.mn.waitConnected()
 
+    def do_addlink(self, line):
+        """Add a link between two nodes with custom parameters.
+        Usage: addlink node1 node2 [bw=X] [delay=Xms] [loss=X%] [max_queue_size=X]
+        
+        Examples:
+            addlink h1 s1                    # Basic link with default parameters
+            addlink h1 s1 bw=10              # 10 Mbps bandwidth
+            addlink h1 s1 bw=100 delay=5ms   # 100 Mbps with 5ms delay
+            addlink h1 s1 loss=1 bw=50       # 1% loss rate, 50 Mbps bandwidth
+        
+        Parameters:
+            bw: bandwidth in Mbps (e.g., bw=10)
+            delay: propagation delay (e.g., delay=10ms)
+            loss: packet loss percentage (e.g., loss=2)
+            max_queue_size: maximum queue size (e.g., max_queue_size=100)
+        
+        Note: Requires TCLink to be enabled for traffic control parameters.
+        """
+        args = line.split()
+        if len(args) < 2:
+            error('Usage: addlink node1 node2 [parameters]\n')
+            return
+        
+        node1_name, node2_name = args[0], args[1]
+        params = {}
+        
+        # Parse parameters
+        for arg in args[2:]:
+            if '=' in arg:
+                key, value = arg.split('=', 1)
+                params[key] = value
+        
+        # Add the link with parameters
+        self.mn.addLink(node1_name, node2_name, **params)
+
     def default( self, line ):
         """Called on an input line when the command prefix is not recognized.
            Overridden to run shell commands when a node is the first
