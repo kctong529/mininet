@@ -416,28 +416,28 @@ class CLI( Cmd ):
     def do_addlink(self, line):
         """Add a link between two nodes with custom parameters.
         Usage: addlink node1 node2 [bw=X] [delay=Xms] [loss=X%] [max_queue_size=X]
-        
+
         Examples:
             addlink h1 s1                    # Basic link with default parameters
             addlink h1 s1 bw=10              # 10 Mbps bandwidth
             addlink h1 s1 bw=100 delay=5ms   # 100 Mbps with 5ms delay
             addlink h1 s1 loss=1 bw=50       # 1% loss rate, 50 Mbps bandwidth
-        
+
         Parameters:
             bw: bandwidth in Mbps (e.g., bw=10)
             delay: propagation delay (e.g., delay=10ms)
             loss: packet loss percentage (e.g., loss=2)
             max_queue_size: maximum queue size (e.g., max_queue_size=100)
-        
+
         Note: Requires TCLink to be enabled for traffic control parameters.
         """
         args = line.split()
         if len(args) < 2:
             error('Usage: addlink node1 node2 [parameters]\n')
             return
-        
+
         node1_name, node2_name = args[0], args[1]
-        
+
         # Get actual node objects
         if node1_name not in self.mn.nameToNode:
             error(f'Node {node1_name} not found\n')
@@ -445,18 +445,18 @@ class CLI( Cmd ):
         if node2_name not in self.mn.nameToNode:
             error(f'Node {node2_name} not found\n')
             return
-            
+
         node1 = self.mn.nameToNode[node1_name]
         node2 = self.mn.nameToNode[node2_name]
-        
+
         # Check if link already exists
         existing_links = self.mn.linksBetween(node1, node2)
         if existing_links:
             error(f'Link already exists between {node1_name} and {node2_name}\n')
             return
-        
+
         params = {}
-        
+
         # Parse parameters
         for arg in args[2:]:
             if '=' in arg:
@@ -485,38 +485,38 @@ class CLI( Cmd ):
                         return
                 else:
                     params[key] = value  # Other parameters as strings
-        
+
         try:
             # Add the link with parameters using node objects
             link = self.mn.addLink(node1, node2, **params)
             output(f'Added link between {node1_name} and {node2_name}\n')
-            
+
             # Configure interfaces if this is a host-to-host link
             if hasattr(node1, 'setIP') and hasattr(node2, 'setIP'):
                 # For direct host-to-host links, ensure they can communicate
                 intf1 = link.intf1
                 intf2 = link.intf2
-                
+
                 # Set up point-to-point addressing if both are hosts
                 if node1_name.startswith('h') and node2_name.startswith('h'):
                     # Extract host numbers for IP assignment
                     try:
                         h1_num = int(node1_name[1:])
                         h2_num = int(node2_name[1:])
-                        
+
                         # Use a point-to-point subnet
                         subnet_base = f'192.168.{min(h1_num, h2_num)}{max(h1_num, h2_num)}'
                         ip1 = f'{subnet_base}.1/30'
                         ip2 = f'{subnet_base}.2/30'
-                        
+
                         node1.setIP(ip1, intf=intf1)
                         node2.setIP(ip2, intf=intf2)
-                        
+
                         output(f'Configured {node1_name} interface with {ip1}\n')
                         output(f'Configured {node2_name} interface with {ip2}\n')
                     except:
                         pass  # Fall back to default behavior
-                
+
         except Exception as e:
             error(f'Failed to add link: {str(e)}\n')
 
