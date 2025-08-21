@@ -415,7 +415,7 @@ class CLI( Cmd ):
 
     def do_addlink(self, line):
         """Add a link between two nodes with custom parameters.
-        Usage: addlink node1 node2 [bw=X] [delay=Xms] [loss=X%] 
+        Usage: addlink node1 node2 [bw=X] [delay=Xms] [loss=X%]
                [max_queue_size=X]
 
         Examples:
@@ -461,7 +461,7 @@ class CLI( Cmd ):
             return
 
         # Add the link
-        self._add_link_with_config(node1, node2, node1_name, node2_name, params)
+        self._add_link_with_config(node1, node2, params)
 
     def _validate_nodes(self, node1_name, node2_name):
         """Validate that both nodes exist in the network."""
@@ -474,19 +474,19 @@ class CLI( Cmd ):
     def _parse_link_params(self, param_args):
         """Parse link parameters from command arguments."""
         params = {}
-        
+
         for arg in param_args:
             if '=' not in arg:
                 continue
-                
+
             key, value = arg.split('=', 1)
             param_value, parse_error = self._parse_single_param(key, value)
-            
+
             if parse_error:
                 return None, parse_error
-                
+
             params[key] = param_value
-        
+
         return params, None
 
     def _parse_single_param(self, key, value):
@@ -505,44 +505,44 @@ class CLI( Cmd ):
         except ValueError:
             return None, f'Invalid {key} value: {value}\n'
 
-    def _add_link_with_config(self, node1, node2, node1_name, node2_name, 
-                             params):
+    def _add_link_with_config(self, node1, node2, params):
         """Add link and configure interfaces if needed."""
         try:
             link = self.mn.addLink(node1, node2, **params)
-            output(f'Added link between {node1_name} and {node2_name}\n')
-            
+            output(f'Added link between {node1.name} and {node2.name}\n')
+
             # Configure host-to-host links
-            self._configure_host_interfaces(node1, node2, node1_name, 
-                                          node2_name, link)
-            
+            self._configure_host_interfaces(node1, node2, link)
+
         except (AttributeError, ValueError, KeyError) as e:
             error(f'Failed to add link: {str(e)}\n')
 
-    def _configure_host_interfaces(self, node1, node2, node1_name, node2_name, 
-                                  link):
+    def _configure_host_interfaces(self, node1, node2, link):
         """Configure interfaces for direct host-to-host links."""
         if not (hasattr(node1, 'setIP') and hasattr(node2, 'setIP')):
             return
-            
+
+        node1_name = node1.name
+        node2_name = node2.name
+
         if not (node1_name.startswith('h') and node2_name.startswith('h')):
             return
-            
+
         try:
             h1_num = int(node1_name[1:])
             h2_num = int(node2_name[1:])
-            
+
             # Use point-to-point subnet
             subnet_base = f'192.168.{min(h1_num, h2_num)}{max(h1_num, h2_num)}'
             ip1 = f'{subnet_base}.1/30'
             ip2 = f'{subnet_base}.2/30'
-            
+
             node1.setIP(ip1, intf=link.intf1)
             node2.setIP(ip2, intf=link.intf2)
-            
+
             output(f'Configured {node1_name} interface with {ip1}\n')
             output(f'Configured {node2_name} interface with {ip2}\n')
-            
+
         except (ValueError, AttributeError):
             # Fall back to default behavior if configuration fails
             pass
