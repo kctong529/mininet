@@ -415,13 +415,14 @@ class CLI( Cmd ):
 
     def do_addlink(self, line):
         """Add a link between two nodes with custom parameters.
-        Usage: addlink node1 node2 [bw=X] [delay=Xms] [loss=X%] [max_queue_size=X]
+        Usage: addlink node1 node2 [bw=X] [delay=Xms] [loss=X%] 
+               [max_queue_size=X]
 
         Examples:
-            addlink h1 s1                    # Basic link with default parameters
+            addlink h1 s1                    # Basic link with defaults
             addlink h1 s1 bw=10              # 10 Mbps bandwidth
             addlink h1 s1 bw=100 delay=5ms   # 100 Mbps with 5ms delay
-            addlink h1 s1 loss=1 bw=50       # 1% loss rate, 50 Mbps bandwidth
+            addlink h1 s1 loss=1 bw=50       # 1% loss rate, 50 Mbps
 
         Parameters:
             bw: bandwidth in Mbps (e.g., bw=10)
@@ -438,87 +439,113 @@ class CLI( Cmd ):
 
         node1_name, node2_name = args[0], args[1]
 
-        # Get actual node objects
-        if node1_name not in self.mn.nameToNode:
-            error(f'Node {node1_name} not found\n')
-            return
-        if node2_name not in self.mn.nameToNode:
-            error(f'Node {node2_name} not found\n')
+        # Validate nodes exist
+        validation_error = self._validate_nodes(node1_name, node2_name)
+        if validation_error:
+            error(validation_error)
             return
 
         node1 = self.mn.nameToNode[node1_name]
         node2 = self.mn.nameToNode[node2_name]
 
-        # Check if link already exists
-        existing_links = self.mn.linksBetween(node1, node2)
-        if existing_links:
-            error(f'Link already exists between {node1_name} and {node2_name}\n')
+        # Check for existing links
+        if self.mn.linksBetween(node1, node2):
+            error(f'Link already exists between {node1_name} and '
+                  f'{node2_name}\n')
             return
 
-        params = {}
-
         # Parse parameters
-        for arg in args[2:]:
-            if '=' in arg:
-                key, value = arg.split('=', 1)
+        params, parse_error = self._parse_link_params(args[2:])
+        if parse_error:
+            error(parse_error)
+            return
 
-                # Convert numeric parameters to proper types
-                if key == 'bw':
-                    try:
-                        params[key] = float(value)  # Bandwidth as number
-                    except ValueError:
-                        error(f'Invalid bandwidth value: {value}\n')
-                        return
-                elif key == 'delay':
-                    params[key] = value  # Delay stays as string (e.g., '10ms')
-                elif key == 'loss':
-                    try:
-                        params[key] = float(value)  # Loss as number
-                    except ValueError:
-                        error(f'Invalid loss value: {value}\n')
-                        return
-                elif key == 'max_queue_size':
-                    try:
-                        params[key] = int(value)  # Queue size as integer
-                    except ValueError:
-                        error(f'Invalid queue size: {value}\n')
-                        return
-                else:
-                    params[key] = value  # Other parameters as strings
+        # Add the link
+        self._add_link_with_config(node1, node2, node1_name, node2_name, params)
 
+    def _validate_nodes(self, node1_name, node2_name):
+        """Validate that both nodes exist in the network."""
+        if node1_name not in self.mn.nameToNode:
+            return f'Node {node1_name} not found\n'
+        if node2_name not in self.mn.nameToNode:
+            return f'Node {node2_name} not found\n'
+        return None
+
+    def _parse_link_params(self, param_args):
+        """Parse link parameters from command arguments."""
+        params = {}
+        
+        for arg in param_args:
+            if '=' not in arg:
+                continue
+                
+            key, value = arg.split('=', 1)
+            param_value, parse_error = self._parse_single_param(key, value)
+            
+            if parse_error:
+                return None, parse_error
+                
+            params[key] = param_value
+        
+        return params, None
+
+    def _parse_single_param(self, key, value):
+        """Parse a single parameter key-value pair."""
         try:
-            # Add the link with parameters using node objects
+            if key == 'bw':
+                return float(value), None
+            elif key == 'delay':
+                return value, None  # Keep as string (e.g., '10ms')
+            elif key == 'loss':
+                return float(value), None
+            elif key == 'max_queue_size':
+                return int(value), None
+            else:
+                return value, None  # Other parameters as strings
+        except ValueError:
+            return None, f'Invalid {key} value: {value}\n'
+
+    def _add_link_with_config(self, node1, node2, node1_name, node2_name, 
+                             params):
+        """Add link and configure interfaces if needed."""
+        try:
             link = self.mn.addLink(node1, node2, **params)
             output(f'Added link between {node1_name} and {node2_name}\n')
-
-            # Configure interfaces if this is a host-to-host link
-            if hasattr(node1, 'setIP') and hasattr(node2, 'setIP'):
-                # For direct host-to-host links, ensure they can communicate
-                intf1 = link.intf1
-                intf2 = link.intf2
-
-                # Set up point-to-point addressing if both are hosts
-                if node1_name.startswith('h') and node2_name.startswith('h'):
-                    # Extract host numbers for IP assignment
-                    try:
-                        h1_num = int(node1_name[1:])
-                        h2_num = int(node2_name[1:])
-
-                        # Use a point-to-point subnet
-                        subnet_base = f'192.168.{min(h1_num, h2_num)}{max(h1_num, h2_num)}'
-                        ip1 = f'{subnet_base}.1/30'
-                        ip2 = f'{subnet_base}.2/30'
-
-                        node1.setIP(ip1, intf=intf1)
-                        node2.setIP(ip2, intf=intf2)
-
-                        output(f'Configured {node1_name} interface with {ip1}\n')
-                        output(f'Configured {node2_name} interface with {ip2}\n')
-                    except:
-                        pass  # Fall back to default behavior
-
-        except Exception as e:
+            
+            # Configure host-to-host links
+            self._configure_host_interfaces(node1, node2, node1_name, 
+                                          node2_name, link)
+            
+        except (AttributeError, ValueError, KeyError) as e:
             error(f'Failed to add link: {str(e)}\n')
+
+    def _configure_host_interfaces(self, node1, node2, node1_name, node2_name, 
+                                  link):
+        """Configure interfaces for direct host-to-host links."""
+        if not (hasattr(node1, 'setIP') and hasattr(node2, 'setIP')):
+            return
+            
+        if not (node1_name.startswith('h') and node2_name.startswith('h')):
+            return
+            
+        try:
+            h1_num = int(node1_name[1:])
+            h2_num = int(node2_name[1:])
+            
+            # Use point-to-point subnet
+            subnet_base = f'192.168.{min(h1_num, h2_num)}{max(h1_num, h2_num)}'
+            ip1 = f'{subnet_base}.1/30'
+            ip2 = f'{subnet_base}.2/30'
+            
+            node1.setIP(ip1, intf=link.intf1)
+            node2.setIP(ip2, intf=link.intf2)
+            
+            output(f'Configured {node1_name} interface with {ip1}\n')
+            output(f'Configured {node2_name} interface with {ip2}\n')
+            
+        except (ValueError, AttributeError):
+            # Fall back to default behavior if configuration fails
+            pass
 
 
     def default( self, line ):
