@@ -547,7 +547,6 @@ class CLI( Cmd ):
             # Fall back to default behavior if configuration fails
             pass
 
-
     def default( self, line ):
         """Called on an input line when the command prefix is not recognized.
            Overridden to run shell commands when a node is the first
