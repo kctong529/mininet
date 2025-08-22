@@ -379,7 +379,7 @@ class CLI( Cmd ):
 
         # Update the link
         self._update_link_config(node1_name, node2_name,
-            existing_links[0], params)
+                                 existing_links[0], params)
 
     def _validate_nodes(self, node1_name, node2_name):
         """Validate that both nodes exist in the network."""
