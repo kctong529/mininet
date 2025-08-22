@@ -547,6 +547,94 @@ class CLI( Cmd ):
             # Fall back to default behavior if configuration fails
             pass
 
+    def do_updatelink(self, line):
+        """Update parameters of an existing link between two nodes.
+        Usage: updatelink node1 node2 [bw=X] [delay=Xms] [loss=X%]
+               [max_queue_size=X]
+
+        Examples:
+            updatelink h1 s1 bw=50           # Change bandwidth to 50 Mbps
+            updatelink h1 s1 delay=20ms      # Update delay to 20ms
+            updatelink h1 h2 bw=100 loss=1   # Update bandwidth and loss
+            updatelink h2 h3 delay=5ms loss=0 # Update delay, remove loss
+
+        Parameters:
+            bw: bandwidth in Mbps (e.g., bw=10)
+            delay: propagation delay (e.g., delay=10ms)
+            loss: packet loss percentage (e.g., loss=2)
+            max_queue_size: maximum queue size (e.g., max_queue_size=100)
+
+        Note: Requires TCLink to be enabled for traffic control parameters.
+        """
+        args = line.split()
+        if len(args) < 3:
+            error('Usage: updatelink node1 node2 [parameters]\n')
+            return
+
+        node1_name, node2_name = args[0], args[1]
+
+        # Validate nodes exist
+        validation_error = self._validate_nodes(node1_name, node2_name)
+        if validation_error:
+            error(validation_error)
+            return
+
+        node1 = self.mn.nameToNode[node1_name]
+        node2 = self.mn.nameToNode[node2_name]
+
+        # Find existing link
+        existing_links = self.mn.linksBetween(node1, node2)
+        if not existing_links:
+            error(f'No link found between {node1_name} and {node2_name}\n')
+            return
+
+        # Parse parameters
+        params, parse_error = self._parse_link_params(args[2:])
+        if parse_error:
+            error(parse_error)
+            return
+
+        if not params:
+            error('No parameters provided for update\n')
+            return
+
+        # Update the link
+        self._update_link_config(node1_name, node2_name, existing_links[0], params)
+
+    
+    def _update_link_config(self, node1_name, node2_name, link, params):
+        """Update link configuration with new parameters."""
+        try:
+            # Update link parameters using the config method
+            link.config(**params)
+            
+            # Format parameter display
+            param_str = ', '.join([f'{k}={v}' for k, v in params.items()])
+            output(f'Updated link between {node1_name} and {node2_name} '
+                   f'with {param_str}\n')
+
+        except (AttributeError, ValueError, KeyError) as e:
+            error(f'Failed to update link: {str(e)}\n')
+        except Exception as e:
+            # Handle cases where config() might not support certain parameters
+            error(f'Error updating link parameters: {str(e)}\n')
+            output('Note: Some parameters may require recreating the link\n')
+
+    def complete_updatelink(self, text, line, begidx, endidx):
+        """Auto-completion for updatelink command."""
+        args = line.split()
+        
+        # Complete node names for first two arguments
+        if len(args) <= 3 and not text.startswith(('bw=', 'delay=', 'loss=', 'max_queue_size=')):
+            nodes = list(self.mn.nameToNode.keys())
+            return [node for node in nodes if node.startswith(text)]
+        
+        # Complete parameter names
+        params = ['bw=', 'delay=', 'loss=', 'max_queue_size=']
+        if '=' in text:
+            return []
+        return [p for p in params if p.startswith(text)]
+
     def default( self, line ):
         """Called on an input line when the command prefix is not recognized.
            Overridden to run shell commands when a node is the first
