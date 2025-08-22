@@ -137,9 +137,9 @@ class CLI( Cmd ):
             line = line.split( '#' )[ 0 ]
         return line
 
-    # =============================================================================
+    # ==========================================================================
     # HELP AND INFORMATION COMMANDS
-    # =============================================================================
+    # ==========================================================================
 
     helpStr = (
         'You may also send a command to a node using:\n'
@@ -195,9 +195,9 @@ class CLI( Cmd ):
         for link in self.mn.links:
             output( link, link.status(), '\n' )
 
-    # =============================================================================
+    # ==========================================================================
     # NETWORK TESTING COMMANDS
-    # =============================================================================
+    # ==========================================================================
 
     def do_pingall( self, line ):
         "Ping between all hosts."
@@ -215,9 +215,9 @@ class CLI( Cmd ):
         "Ping between first two hosts, returns all ping results."
         self.mn.pingPairFull()
 
-    # =============================================================================
+    # ==========================================================================
     # PERFORMANCE TESTING COMMANDS
-    # =============================================================================
+    # ==========================================================================
 
     def do_iperf( self, line ):
         """Simple iperf TCP test between two (optionally specified) hosts.
@@ -261,9 +261,9 @@ class CLI( Cmd ):
             error( 'invalid number of args: iperfudp bw src dst\n' +
                    'bw examples: 10M\n' )
 
-    # =============================================================================
+    # ==========================================================================
     # LINK MANAGEMENT COMMANDS
-    # =============================================================================
+    # ==========================================================================
 
     def do_link( self, line ):
         """Bring link(s) between two nodes up or down.
@@ -495,11 +495,61 @@ class CLI( Cmd ):
 
         except (AttributeError, ValueError, KeyError) as e:
             error(f'Failed to update link: {str(e)}\n')
-        except Exception as e:
-            # Handle cases where config() might fail for other reasons
+        except (OSError, RuntimeError) as e:
+            # Handle cases where config() might fail for system-level reasons
             error(f'Error updating link parameters: {str(e)}\n')
             output('Note: Some parameters may require recreating the link or '
                    'using TCLink\n')
+
+    def do_removelink(self, line):
+        """Remove a link between two nodes.
+        Usage: removelink node1 node2
+
+        Examples:
+            removelink h1 s1    # Remove link between h1 and s1
+            removelink h2 h3    # Remove link between h2 and h3
+
+        Note: This will remove the first link found between the nodes.
+        """
+        args = line.split()
+        if len(args) != 2:
+            error('Usage: removelink node1 node2\n')
+            return
+
+        node1_name, node2_name = args[0], args[1]
+
+        # Validate nodes exist
+        validation_error = self._validate_nodes(node1_name, node2_name)
+        if validation_error:
+            error(validation_error)
+            return
+
+        node1 = self.mn.nameToNode[node1_name]
+        node2 = self.mn.nameToNode[node2_name]
+
+        # Find existing link
+        existing_links = self.mn.linksBetween(node1, node2)
+        if not existing_links:
+            error(f'No link found between {node1_name} and {node2_name}\n')
+            return
+
+        # Remove the link
+        link = existing_links[0]
+        try:
+            # Remove interfaces from nodes
+            if hasattr(link, 'intf1') and link.intf1:
+                node1.delIntf(link.intf1)
+            if hasattr(link, 'intf2') and link.intf2:
+                node2.delIntf(link.intf2)
+            
+            # Remove link from network
+            if link in self.mn.links:
+                self.mn.links.remove(link)
+            
+            output(f'Removed link between {node1_name} and {node2_name}\n')
+            
+        except Exception as e:
+            error(f'Failed to remove link: {str(e)}\n')
 
     def complete_updatelink(self, text, line, begidx, endidx):
         """Auto-completion for updatelink command."""
@@ -517,9 +567,9 @@ class CLI( Cmd ):
             return []
         return [p for p in params if p.startswith(text)]
 
-    # =============================================================================
+    # ==========================================================================
     # TERMINAL AND X11 COMMANDS
-    # =============================================================================
+    # ==========================================================================
 
     def do_xterm( self, line, term='xterm' ):
         """Spawn xterm(s) for the given node(s).
@@ -552,9 +602,9 @@ class CLI( Cmd ):
             cmd = args[ 1: ]
             self.mn.terms += runX11( node, cmd )
 
-    # =============================================================================
+    # ==========================================================================
     # PYTHON EXECUTION COMMANDS
-    # =============================================================================
+    # ==========================================================================
 
     # do_py() and do_px() need to catch any exception during eval()/exec()
     # pylint: disable=broad-except
@@ -585,9 +635,9 @@ class CLI( Cmd ):
         except Exception as e:
             output( str( e ) + '\n' )
 
-    # =============================================================================
+    # ==========================================================================
     # SWITCH AND CONTROLLER COMMANDS
-    # =============================================================================
+    # ==========================================================================
 
     def do_dpctl( self, line ):
         """Run dpctl (or ovs-ofctl) command on all switches.
@@ -626,9 +676,9 @@ class CLI( Cmd ):
         "Wait until all switches have connected to a controller"
         self.mn.waitConnected()
 
-    # =============================================================================
+    # ==========================================================================
     # SYSTEM AND UTILITY COMMANDS
-    # =============================================================================
+    # ==========================================================================
 
     def do_sh( self, line ):
         """Run an external shell command
@@ -674,9 +724,9 @@ class CLI( Cmd ):
         elapsed = time.time() - start
         self.stdout.write("*** Elapsed time: %0.6f secs\n" % elapsed)
 
-    # =============================================================================
+    # ==========================================================================
     # EXIT COMMANDS
-    # =============================================================================
+    # ==========================================================================
 
     def do_exit( self, _line ):
         "Exit"
@@ -692,9 +742,9 @@ class CLI( Cmd ):
         output( '\n' )
         return self.do_exit( line )
 
-    # =============================================================================
+    # ==========================================================================
     # CORE CLI FUNCTIONALITY
-    # =============================================================================
+    # ==========================================================================
 
     def isatty( self ):
         "Is our standard input a tty?"
