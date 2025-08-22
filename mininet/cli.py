@@ -605,8 +605,25 @@ class CLI( Cmd ):
     def _update_link_config(self, node1_name, node2_name, link, params):
         """Update link configuration with new parameters."""
         try:
-            # Update link parameters using the config method
-            link.config(**params)
+            # Configure both interfaces of the link
+            results = []
+            
+            # Update interface 1 (if it supports traffic control)
+            if hasattr(link.intf1, 'config'):
+                result1 = link.intf1.config(**params)
+                results.append(f"intf1: {result1}")
+            
+            # Update interface 2 (if it supports traffic control)
+            if hasattr(link.intf2, 'config'):
+                result2 = link.intf2.config(**params)
+                results.append(f"intf2: {result2}")
+            
+            if not results:
+                error(f'Link between {node1_name} and {node2_name} does not support '
+                      'traffic control parameters\n')
+                output('Note: Use TCLink when creating the topology to enable '
+                       'traffic control\n')
+                return
             
             # Format parameter display
             param_str = ', '.join([f'{k}={v}' for k, v in params.items()])
@@ -616,9 +633,10 @@ class CLI( Cmd ):
         except (AttributeError, ValueError, KeyError) as e:
             error(f'Failed to update link: {str(e)}\n')
         except Exception as e:
-            # Handle cases where config() might not support certain parameters
+            # Handle cases where config() might fail for other reasons
             error(f'Error updating link parameters: {str(e)}\n')
-            output('Note: Some parameters may require recreating the link\n')
+            output('Note: Some parameters may require recreating the link or '
+                   'using TCLink\n')
 
     def complete_updatelink(self, text, line, begidx, endidx):
         """Auto-completion for updatelink command."""
