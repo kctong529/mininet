@@ -564,7 +564,7 @@ class CLI( Cmd ):
         except (OSError, RuntimeError) as e:
             error(f'System error removing link: {str(e)}\n')
 
-    def complete_updatelink(self, text, line, begidx, endidx):
+    def complete_updatelink(self, text, line, _begidx, _endidx):
         """Auto-completion for updatelink command."""
         args = line.split()
 
