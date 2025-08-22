@@ -536,16 +536,27 @@ class CLI( Cmd ):
         # Remove the link
         link = existing_links[0]
         try:
-            # Remove interfaces from nodes
-            if hasattr(link, 'intf1') and link.intf1:
-                node1.delIntf(link.intf1)
-            if hasattr(link, 'intf2') and link.intf2:
-                node2.delIntf(link.intf2)
-
+            # Properly delete the link using Mininet's built-in method
+            if hasattr(link, 'delete'):
+                link.delete()
+            else:
+                # Fallback: manually clean up interfaces
+                if hasattr(link, 'intf1') and link.intf1:
+                    # Delete the actual interface before removing from node
+                    if hasattr(link.intf1, 'delete'):
+                        link.intf1.delete()
+                    node1.delIntf(link.intf1)
+                    
+                if hasattr(link, 'intf2') and link.intf2:
+                    # Delete the actual interface before removing from node
+                    if hasattr(link.intf2, 'delete'):
+                        link.intf2.delete()
+                    node2.delIntf(link.intf2)
+            
             # Remove link from network
             if link in self.mn.links:
                 self.mn.links.remove(link)
-
+            
             output(f'Removed link between {node1_name} and {node2_name}\n')
 
         except (AttributeError, ValueError) as e:
