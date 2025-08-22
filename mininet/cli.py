@@ -482,10 +482,10 @@ class CLI( Cmd ):
                 results.append(f"intf2: {result2}")
 
             if not results:
-                error(f'Link between {node1_name} and {node2_name} does not support '
-                      'traffic control parameters\n')
+                error(f'Link between {node1_name} and {node2_name} does not '
+                        ' support traffic control parameters\n')
                 output('Note: Use TCLink when creating the topology to enable '
-                       'traffic control\n')
+                        'traffic control\n')
                 return
 
             # Format parameter display
@@ -541,15 +541,17 @@ class CLI( Cmd ):
                 node1.delIntf(link.intf1)
             if hasattr(link, 'intf2') and link.intf2:
                 node2.delIntf(link.intf2)
-            
+
             # Remove link from network
             if link in self.mn.links:
                 self.mn.links.remove(link)
-            
+
             output(f'Removed link between {node1_name} and {node2_name}\n')
-            
-        except Exception as e:
+
+        except (AttributeError, ValueError) as e:
             error(f'Failed to remove link: {str(e)}\n')
+        except (OSError, RuntimeError) as e:
+            error(f'System error removing link: {str(e)}\n')
 
     def complete_updatelink(self, text, line, begidx, endidx):
         """Auto-completion for updatelink command."""
@@ -781,7 +783,7 @@ class CLI( Cmd ):
                         return
                 else:
                     substituted_args.append(arg)
-            
+
             rest = ' '.join( substituted_args )
             # Run cmd on node:
             node.sendCmd( rest )
