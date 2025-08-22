@@ -131,6 +131,16 @@ class CLI( Cmd ):
         self.locals.update( self.mn )
         return self.locals
 
+    def precmd( self, line ):
+        "allow for comments in the cli"
+        if '#' in line:
+            line = line.split( '#' )[ 0 ]
+        return line
+
+    # ==========================================================================
+    # HELP AND INFORMATION COMMANDS
+    # ==========================================================================
+
     helpStr = (
         'You may also send a command to a node using:\n'
         '  <node> command {args}\n'
@@ -169,42 +179,25 @@ class CLI( Cmd ):
         "List network connections."
         dumpNodeConnections( self.mn.values() )
 
-    def do_sh( self, line ):
-        """Run an external shell command
-           Usage: sh [cmd args]"""
-        assert self  # satisfy pylint and allow override
-        call( line, shell=True )
+    def do_intfs( self, _line ):
+        "List interfaces."
+        for node in self.mn.values():
+            output( '%s: %s\n' %
+                    ( node.name, ','.join( node.intfNames() ) ) )
 
-    # do_py() and do_px() need to catch any exception during eval()/exec()
-    # pylint: disable=broad-except
+    def do_dump( self, _line ):
+        "Dump node info."
+        for node in self.mn.values():
+            output( '%s\n' % repr( node ) )
 
-    def do_py( self, line ):
-        """Evaluate a Python expression.
-           Node names may be used, e.g.: py h1.cmd('ls')"""
-        try:
-            # pylint: disable=eval-used
-            result = eval( line, globals(), self.getLocals() )
-            if result is None:
-                return
-            elif isinstance( result, str ):
-                output( result + '\n' )
-            else:
-                output( repr( result ) + '\n' )
-        except Exception as e:
-            output( str( e ) + '\n' )
+    def do_links( self, _line ):
+        "Report on links"
+        for link in self.mn.links:
+            output( link, link.status(), '\n' )
 
-    # We are in fact using the exec() pseudo-function
-    # pylint: disable=exec-used
-
-    def do_px( self, line ):
-        """Execute a Python statement.
-            Node names may be used, e.g.: px print h1.cmd('ls')"""
-        try:
-            exec( line, globals(), self.getLocals() )
-        except Exception as e:
-            output( str( e ) + '\n' )
-
-    # pylint: enable=broad-except,exec-used
+    # ==========================================================================
+    # NETWORK TESTING COMMANDS
+    # ==========================================================================
 
     def do_pingall( self, line ):
         "Ping between all hosts."
@@ -221,6 +214,10 @@ class CLI( Cmd ):
     def do_pingpairfull( self, _line ):
         "Ping between first two hosts, returns all ping results."
         self.mn.pingPairFull()
+
+    # ==========================================================================
+    # PERFORMANCE TESTING COMMANDS
+    # ==========================================================================
 
     def do_iperf( self, line ):
         """Simple iperf TCP test between two (optionally specified) hosts.
@@ -264,16 +261,9 @@ class CLI( Cmd ):
             error( 'invalid number of args: iperfudp bw src dst\n' +
                    'bw examples: 10M\n' )
 
-    def do_intfs( self, _line ):
-        "List interfaces."
-        for node in self.mn.values():
-            output( '%s: %s\n' %
-                    ( node.name, ','.join( node.intfNames() ) ) )
-
-    def do_dump( self, _line ):
-        "Dump node info."
-        for node in self.mn.values():
-            output( '%s\n' % repr( node ) )
+    # ==========================================================================
+    # LINK MANAGEMENT COMMANDS
+    # ==========================================================================
 
     def do_link( self, line ):
         """Bring link(s) between two nodes up or down.
@@ -285,133 +275,6 @@ class CLI( Cmd ):
             error( 'invalid type: link end1 end2 [up down]\n' )
         else:
             self.mn.configLinkStatus( *args )
-
-    def do_xterm( self, line, term='xterm' ):
-        """Spawn xterm(s) for the given node(s).
-           Usage: xterm node1 node2 ..."""
-        args = line.split()
-        if not args:
-            error( 'usage: %s node1 node2 ...\n' % term )
-        else:
-            for arg in args:
-                if arg not in self.mn:
-                    error( "node '%s' not in network\n" % arg )
-                else:
-                    node = self.mn[ arg ]
-                    self.mn.terms += makeTerms( [ node ], term = term )
-
-    def do_x( self, line ):
-        """Create an X11 tunnel to the given node,
-           optionally starting a client.
-           Usage: x node [cmd args]"""
-        args = line.split()
-        if not args:
-            error( 'usage: x node [cmd args]...\n' )
-        else:
-            node = self.mn[ args[ 0 ] ]
-            cmd = args[ 1: ]
-            self.mn.terms += runX11( node, cmd )
-
-    def do_gterm( self, line ):
-        """Spawn gnome-terminal(s) for the given node(s).
-           Usage: gterm node1 node2 ..."""
-        self.do_xterm( line, term='gterm' )
-
-    def do_exit( self, _line ):
-        "Exit"
-        assert self  # satisfy pylint and allow override
-        return 'exited by user command'
-
-    def do_quit( self, line ):
-        "Exit"
-        return self.do_exit( line )
-
-    def do_EOF( self, line ):
-        "Exit"
-        output( '\n' )
-        return self.do_exit( line )
-
-    def isatty( self ):
-        "Is our standard input a tty?"
-        return isatty( self.stdin.fileno() )
-
-    def do_noecho( self, line ):
-        """Run an interactive command with echoing turned off.
-           Usage: noecho [cmd args]"""
-        if self.isatty():
-            quietRun( 'stty -echo' )
-        self.default( line )
-        if self.isatty():
-            quietRun( 'stty echo' )
-
-    def do_source( self, line ):
-        """Read commands from an input file.
-           Usage: source <file>"""
-        args = line.split()
-        if len(args) != 1:
-            error( 'usage: source <file>\n' )
-            return
-        try:
-            with open( args[ 0 ] ) as self.inputFile:
-                while True:
-                    line = self.inputFile.readline()
-                    if len( line ) > 0:
-                        self.onecmd( line )
-                    else:
-                        break
-        except IOError:
-            error( 'error reading file %s\n' % args[ 0 ] )
-        self.inputFile.close()
-        self.inputFile = None
-
-    def do_dpctl( self, line ):
-        """Run dpctl (or ovs-ofctl) command on all switches.
-           Usage: dpctl command [arg1] [arg2] ..."""
-        args = line.split()
-        if len(args) < 1:
-            error( 'usage: dpctl command [arg1] [arg2] ...\n' )
-            return
-        for sw in self.mn.switches:
-            output( '*** ' + sw.name + ' ' + ('-' * 72) + '\n' )
-            output( sw.dpctl( *args ) )
-
-    def do_time( self, line ):
-        "Measure time taken for any command in Mininet."
-        start = time.time()
-        self.onecmd(line)
-        elapsed = time.time() - start
-        self.stdout.write("*** Elapsed time: %0.6f secs\n" % elapsed)
-
-    def do_links( self, _line ):
-        "Report on links"
-        for link in self.mn.links:
-            output( link, link.status(), '\n' )
-
-    def do_switch( self, line ):
-        "Starts or stops a switch"
-        args = line.split()
-        if len(args) != 2:
-            error( 'invalid number of args: switch <switch name>'
-                   '{start, stop}\n' )
-            return
-        sw = args[ 0 ]
-        command = args[ 1 ]
-        if sw not in self.mn or self.mn.get( sw ) not in self.mn.switches:
-            error( 'invalid switch: %s\n' % args[ 1 ] )
-        else:
-            sw = args[ 0 ]
-            command = args[ 1 ]
-            if command == 'start':
-                self.mn.get( sw ).start( self.mn.controllers )
-            elif command == 'stop':
-                self.mn.get( sw ).stop( deleteIntfs=False )
-            else:
-                error( 'invalid command: '
-                       'switch <switch name> {start, stop}\n' )
-
-    def do_wait( self, _line ):
-        "Wait until all switches have connected to a controller"
-        self.mn.waitConnected()
 
     def do_addlink(self, line):
         """Add a link between two nodes with custom parameters.
@@ -462,6 +325,61 @@ class CLI( Cmd ):
 
         # Add the link
         self._add_link_with_config(node1, node2, params)
+
+    def do_updatelink(self, line):
+        """Update parameters of an existing link between two nodes.
+        Usage: updatelink node1 node2 [bw=X] [delay=Xms] [loss=X%]
+               [max_queue_size=X]
+
+        Examples:
+            updatelink h1 s1 bw=50           # Change bandwidth to 50 Mbps
+            updatelink h1 s1 delay=20ms      # Update delay to 20ms
+            updatelink h1 h2 bw=100 loss=1   # Update bandwidth and loss
+            updatelink h2 h3 delay=5ms loss=0 # Update delay, remove loss
+
+        Parameters:
+            bw: bandwidth in Mbps (e.g., bw=10)
+            delay: propagation delay (e.g., delay=10ms)
+            loss: packet loss percentage (e.g., loss=2)
+            max_queue_size: maximum queue size (e.g., max_queue_size=100)
+
+        Note: Requires TCLink to be enabled for traffic control parameters.
+        """
+        args = line.split()
+        if len(args) < 3:
+            error('Usage: updatelink node1 node2 [parameters]\n')
+            return
+
+        node1_name, node2_name = args[0], args[1]
+
+        # Validate nodes exist
+        validation_error = self._validate_nodes(node1_name, node2_name)
+        if validation_error:
+            error(validation_error)
+            return
+
+        node1 = self.mn.nameToNode[node1_name]
+        node2 = self.mn.nameToNode[node2_name]
+
+        # Find existing link
+        existing_links = self.mn.linksBetween(node1, node2)
+        if not existing_links:
+            error(f'No link found between {node1_name} and {node2_name}\n')
+            return
+
+        # Parse parameters
+        params, parse_error = self._parse_link_params(args[2:])
+        if parse_error:
+            error(parse_error)
+            return
+
+        if not params:
+            error('No parameters provided for update\n')
+            return
+
+        # Update the link
+        self._update_link_config(node1_name, node2_name,
+                                 existing_links[0], params)
 
     def _validate_nodes(self, node1_name, node2_name):
         """Validate that both nodes exist in the network."""
@@ -547,6 +465,304 @@ class CLI( Cmd ):
             # Fall back to default behavior if configuration fails
             pass
 
+    def _update_link_config(self, node1_name, node2_name, link, params):
+        """Update link configuration with new parameters."""
+        try:
+            # Configure both interfaces of the link
+            results = []
+
+            # Update interface 1 (if it supports traffic control)
+            if hasattr(link.intf1, 'config'):
+                result1 = link.intf1.config(**params)
+                results.append(f"intf1: {result1}")
+
+            # Update interface 2 (if it supports traffic control)
+            if hasattr(link.intf2, 'config'):
+                result2 = link.intf2.config(**params)
+                results.append(f"intf2: {result2}")
+
+            if not results:
+                error(f'Link between {node1_name} and {node2_name} does not '
+                        ' support traffic control parameters\n')
+                output('Note: Use TCLink when creating the topology to enable '
+                        'traffic control\n')
+                return
+
+            # Format parameter display
+            param_str = ', '.join([f'{k}={v}' for k, v in params.items()])
+            output(f'Updated link between {node1_name} and {node2_name} '
+                   f'with {param_str}\n')
+
+        except (AttributeError, ValueError, KeyError) as e:
+            error(f'Failed to update link: {str(e)}\n')
+        except (OSError, RuntimeError) as e:
+            # Handle cases where config() might fail for system-level reasons
+            error(f'Error updating link parameters: {str(e)}\n')
+            output('Note: Some parameters may require recreating the link or '
+                   'using TCLink\n')
+
+    def do_removelink(self, line):
+        """Remove a link between two nodes.
+        Usage: removelink node1 node2
+
+        Examples:
+            removelink h1 s1    # Remove link between h1 and s1
+            removelink h2 h3    # Remove link between h2 and h3
+
+        Note: This will remove the first link found between the nodes.
+        """
+        args = line.split()
+        if len(args) != 2:
+            error('Usage: removelink node1 node2\n')
+            return
+
+        node1_name, node2_name = args[0], args[1]
+
+        # Validate nodes exist
+        validation_error = self._validate_nodes(node1_name, node2_name)
+        if validation_error:
+            error(validation_error)
+            return
+
+        node1 = self.mn.nameToNode[node1_name]
+        node2 = self.mn.nameToNode[node2_name]
+
+        # Find existing link
+        existing_links = self.mn.linksBetween(node1, node2)
+        if not existing_links:
+            error(f'No link found between {node1_name} and {node2_name}\n')
+            return
+
+        # Remove the link
+        link = existing_links[0]
+        try:
+            # Properly delete the link using Mininet's built-in method
+            if hasattr(link, 'delete'):
+                link.delete()
+            else:
+                # Fallback: manually clean up interfaces
+                if hasattr(link, 'intf1') and link.intf1:
+                    # Delete the actual interface before removing from node
+                    if hasattr(link.intf1, 'delete'):
+                        link.intf1.delete()
+                    node1.delIntf(link.intf1)
+
+                if hasattr(link, 'intf2') and link.intf2:
+                    # Delete the actual interface before removing from node
+                    if hasattr(link.intf2, 'delete'):
+                        link.intf2.delete()
+                    node2.delIntf(link.intf2)
+
+            # Remove link from network
+            if link in self.mn.links:
+                self.mn.links.remove(link)
+
+            output(f'Removed link between {node1_name} and {node2_name}\n')
+
+        except (AttributeError, ValueError) as e:
+            error(f'Failed to remove link: {str(e)}\n')
+        except (OSError, RuntimeError) as e:
+            error(f'System error removing link: {str(e)}\n')
+
+    def complete_updatelink(self, text, line, _begidx, _endidx):
+        """Auto-completion for updatelink command."""
+        args = line.split()
+
+        # Complete node names for first two arguments
+        if len(args) <= 3 and not text.startswith((
+                'bw=', 'delay=', 'loss=', 'max_queue_size=')):
+            nodes = list(self.mn.nameToNode.keys())
+            return [node for node in nodes if node.startswith(text)]
+
+        # Complete parameter names
+        params = ['bw=', 'delay=', 'loss=', 'max_queue_size=']
+        if '=' in text:
+            return []
+        return [p for p in params if p.startswith(text)]
+
+    # ==========================================================================
+    # TERMINAL AND X11 COMMANDS
+    # ==========================================================================
+
+    def do_xterm( self, line, term='xterm' ):
+        """Spawn xterm(s) for the given node(s).
+           Usage: xterm node1 node2 ..."""
+        args = line.split()
+        if not args:
+            error( 'usage: %s node1 node2 ...\n' % term )
+        else:
+            for arg in args:
+                if arg not in self.mn:
+                    error( "node '%s' not in network\n" % arg )
+                else:
+                    node = self.mn[ arg ]
+                    self.mn.terms += makeTerms( [ node ], term = term )
+
+    def do_gterm( self, line ):
+        """Spawn gnome-terminal(s) for the given node(s).
+           Usage: gterm node1 node2 ..."""
+        self.do_xterm( line, term='gterm' )
+
+    def do_x( self, line ):
+        """Create an X11 tunnel to the given node,
+           optionally starting a client.
+           Usage: x node [cmd args]"""
+        args = line.split()
+        if not args:
+            error( 'usage: x node [cmd args]...\n' )
+        else:
+            node = self.mn[ args[ 0 ] ]
+            cmd = args[ 1: ]
+            self.mn.terms += runX11( node, cmd )
+
+    # ==========================================================================
+    # PYTHON EXECUTION COMMANDS
+    # ==========================================================================
+
+    # do_py() and do_px() need to catch any exception during eval()/exec()
+    # pylint: disable=broad-except
+
+    def do_py( self, line ):
+        """Evaluate a Python expression.
+           Node names may be used, e.g.: py h1.cmd('ls')"""
+        try:
+            # pylint: disable=eval-used
+            result = eval( line, globals(), self.getLocals() )
+            if result is None:
+                return
+            elif isinstance( result, str ):
+                output( result + '\n' )
+            else:
+                output( repr( result ) + '\n' )
+        except Exception as e:
+            output( str( e ) + '\n' )
+
+    # We are in fact using the exec() pseudo-function
+    # pylint: disable=exec-used
+
+    def do_px( self, line ):
+        """Execute a Python statement.
+            Node names may be used, e.g.: px print h1.cmd('ls')"""
+        try:
+            exec( line, globals(), self.getLocals() )
+        except Exception as e:
+            output( str( e ) + '\n' )
+
+    # ==========================================================================
+    # SWITCH AND CONTROLLER COMMANDS
+    # ==========================================================================
+
+    def do_dpctl( self, line ):
+        """Run dpctl (or ovs-ofctl) command on all switches.
+           Usage: dpctl command [arg1] [arg2] ..."""
+        args = line.split()
+        if len(args) < 1:
+            error( 'usage: dpctl command [arg1] [arg2] ...\n' )
+            return
+        for sw in self.mn.switches:
+            output( '*** ' + sw.name + ' ' + ('-' * 72) + '\n' )
+            output( sw.dpctl( *args ) )
+
+    def do_switch( self, line ):
+        "Starts or stops a switch"
+        args = line.split()
+        if len(args) != 2:
+            error( 'invalid number of args: switch <switch name>'
+                   '{start, stop}\n' )
+            return
+        sw = args[ 0 ]
+        command = args[ 1 ]
+        if sw not in self.mn or self.mn.get( sw ) not in self.mn.switches:
+            error( 'invalid switch: %s\n' % args[ 1 ] )
+        else:
+            sw = args[ 0 ]
+            command = args[ 1 ]
+            if command == 'start':
+                self.mn.get( sw ).start( self.mn.controllers )
+            elif command == 'stop':
+                self.mn.get( sw ).stop( deleteIntfs=False )
+            else:
+                error( 'invalid command: '
+                       'switch <switch name> {start, stop}\n' )
+
+    def do_wait( self, _line ):
+        "Wait until all switches have connected to a controller"
+        self.mn.waitConnected()
+
+    # ==========================================================================
+    # SYSTEM AND UTILITY COMMANDS
+    # ==========================================================================
+
+    def do_sh( self, line ):
+        """Run an external shell command
+           Usage: sh [cmd args]"""
+        assert self  # satisfy pylint and allow override
+        call( line, shell=True )
+
+    # pylint: enable=broad-except,exec-used
+
+    def do_noecho( self, line ):
+        """Run an interactive command with echoing turned off.
+           Usage: noecho [cmd args]"""
+        if self.isatty():
+            quietRun( 'stty -echo' )
+        self.default( line )
+        if self.isatty():
+            quietRun( 'stty echo' )
+
+    def do_source( self, line ):
+        """Read commands from an input file.
+           Usage: source <file>"""
+        args = line.split()
+        if len(args) != 1:
+            error( 'usage: source <file>\n' )
+            return
+        try:
+            with open( args[ 0 ] ) as self.inputFile:
+                while True:
+                    line = self.inputFile.readline()
+                    if len( line ) > 0:
+                        self.onecmd( line )
+                    else:
+                        break
+        except IOError:
+            error( 'error reading file %s\n' % args[ 0 ] )
+        self.inputFile.close()
+        self.inputFile = None
+
+    def do_time( self, line ):
+        "Measure time taken for any command in Mininet."
+        start = time.time()
+        self.onecmd(line)
+        elapsed = time.time() - start
+        self.stdout.write("*** Elapsed time: %0.6f secs\n" % elapsed)
+
+    # ==========================================================================
+    # EXIT COMMANDS
+    # ==========================================================================
+
+    def do_exit( self, _line ):
+        "Exit"
+        assert self  # satisfy pylint and allow override
+        return 'exited by user command'
+
+    def do_quit( self, line ):
+        "Exit"
+        return self.do_exit( line )
+
+    def do_EOF( self, line ):
+        "Exit"
+        output( '\n' )
+        return self.do_exit( line )
+
+    # ==========================================================================
+    # CORE CLI FUNCTIONALITY
+    # ==========================================================================
+
+    def isatty( self ):
+        "Is our standard input a tty?"
+        return isatty( self.stdin.fileno() )
+
     def default( self, line ):
         """Called on an input line when the command prefix is not recognized.
            Overridden to run shell commands when a node is the first
@@ -564,10 +780,22 @@ class CLI( Cmd ):
             rest = args.split( ' ' )
             # Substitute IP addresses for node names in command
             # If updateIP() returns None, then use node name
-            rest = [ self.mn[ arg ].defaultIntf().updateIP() or arg
-                     if arg in self.mn else arg
-                     for arg in rest ]
-            rest = ' '.join( rest )
+            substituted_args = []
+            for arg in rest:
+                if arg in self.mn:
+                    target_node = self.mn[arg]
+                    default_intf = target_node.defaultIntf()
+                    if default_intf is not None:
+                        ip = default_intf.updateIP()
+                        substituted_args.append(ip or arg)
+                    else:
+                        error( f'*** Error: node {arg} has no interfaces - '
+                               f'cannot resolve IP address\n' )
+                        return
+                else:
+                    substituted_args.append(arg)
+
+            rest = ' '.join( substituted_args )
             # Run cmd on node:
             node.sendCmd( rest )
             self.waitForNode( node )
@@ -618,12 +846,6 @@ class CLI( Cmd ):
                 if errno_ != errno.EINTR:
                     error( "select.error: %s, %s" % (errno_, errmsg) )
                     node.sendInt()
-
-    def precmd( self, line ):
-        "allow for comments in the cli"
-        if '#' in line:
-            line = line.split( '#' )[ 0 ]
-        return line
 
 
 # Helper functions
